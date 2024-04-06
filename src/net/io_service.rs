@@ -56,6 +56,8 @@ impl IoService {
         }
     }
 
+    /// register the IoSource along with the waker which knows which task
+    /// to wake up.
     pub fn register<S>(&self, source: &mut S, waker: &'_ Waker)
     where
         S: event::Source
@@ -102,6 +104,6 @@ impl IoService {
                 }
             }
         );
-        th.join();
+        th.join().unwrap();
     }
 }

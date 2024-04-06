@@ -6,15 +6,23 @@ use std::mem;
 use crate::task::Context;
 
 /// Poll
-/// Returns the status of the future when polled. The future
+/// The status of the future when polled. The future
 /// can only be in one of the 2 states. Ready, either with success or failure
 /// OR Pending.
 /// A future can get polled multiple times even when in Pending state.
+/// A poll which is Ready means that the async computation task has finished.
+/// Whether it finished successfully or not does not matter to Poll. The generic type
+/// parameter `T` should be able to convey that. For eg: `T` can be Option<T> or Result<T, dyn Error> etc.
+/// 
+/// The `Poll` type itself has nothing to with the async computation. The magic is performed
+/// within the `Future::poll` call.
 pub enum Poll<T> {
     Ready(T),
     Pending,
 }
 
+/// Some helper functions which is not very interesting or would be even used
+/// in our examples.
 impl<T> Poll<T> {
     pub fn map<F, U>(self, f: F) -> Poll<U>
     where
@@ -94,13 +102,15 @@ impl<T> From<T> for Poll<T> {
 /// `Future` represents the state of any asynchronous operation.
 /// The `Future` object will hold the result of the async operation (whether success or failure)
 /// when the async operation runs to completion.
+/// NOTE: "Hold" is probably not the correct word here since future is not required to "store"
+/// the output value. It can just return it when the async operation finishes.
 /// 
 /// The `Future` model is _poll_ based i.e there needs to be a driver to run the async operation 
 /// to completion and this is done by calling the `poll` method on the future.
 /// 
 /// The `poll` method can either return Poll::Pending or Poll::Ready(T) where T is the output from the
 /// async computation.
-/// `Poll` method needs to be called atleast once so that to prime it i.e to make sure that the completion
+/// `Poll` method needs to be called atleast once so as to prime it i.e to make sure that the completion
 /// of the async operation is notified.
 pub trait Future {
     // The type of value returned by the async operation.
@@ -118,7 +128,7 @@ impl<F: Future + Unpin> Future for &mut F {
 
 
 /// A future which is always ready.
-/// 
+/// Not used in our examples!
 pub struct Ready<T>(pub Option<T>);
 
 impl<T> Unpin for Ready<T> {}
@@ -143,8 +153,12 @@ impl<T> Future for Ready<T> {
 /// 
 /// Thus we need to expose the Future in its raw pointer form stored inside a
 /// struct as an object. And for that, we need to be able to convert the Future like
-/// type into its pointer form via a trait.
-/// This is what UnsafeFutureObj trait does.
+/// type into its pointer form. Hence this trait. Future like objects can implement this trait
+/// and then can be used inside a structure. This is what UnsafeFutureObj trait does.
+/// 
+/// We really did not have to define this trait and could have directly used unsafe inside
+/// LocalFutureObj implementation. We are going with this as it is interesting pattern that have
+/// actually come up in different forms (Waker..) and also it is already implemented for us in the futures library.
 pub unsafe trait UnsafeFutureObj<'a, T>: 'a {
     /// Convert an owned instance into a (conceptually owned) fat pointer.
     /// 
@@ -275,6 +289,8 @@ unsafe impl<'a, T: 'a> UnsafeFutureObj<'a, T> for Pin<Box<dyn Future<Output = T>
 /// As mentioned before this is useful for 2 cases:
 ///     a. Defining traits which takes a future as parameter without comprimising object safety rules.
 ///     b. For use cases where Box<Future> cannot be used.
+/// 
+/// For defining any traits which expects Future as parameter, we will use this object instead.
 pub struct LocalFutureObj<'a, T> {
     future: *mut (dyn Future<Output=T> + 'static),
     drop_fn: unsafe fn(*mut (dyn Future<Output=T> + 'static)),

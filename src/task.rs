@@ -12,11 +12,15 @@ use std::mem;
 /// sense that executor providers will have their own implementations of the Waker.
 /// That means wakers are tightly coupled with the executor and a custom waker provided
 /// by the user might not work well with another executor.
+/// 
+/// Why is this not a trait ? Because, if we implement this as a trait, then we need
+/// to define a clone method. The close method has return of `Self` which cannot be used in an
+/// object safe manner.
 #[derive(PartialEq, Debug)]
 pub struct RawWaker {
     /// A data pointer like void* in C, to store arbitrary data as
     /// required by the _executor_.This could be a type erased pointer
-    /// to as Arc that is associated to a task or a task identifier which
+    /// to an Arc that is associated to a task or a task identifier which
     /// is associatively mapped to the task instance by the _executor_.
     data: *const (),
     vtable: &'static RawWakerVTable,
@@ -76,6 +80,7 @@ impl RawWakerVTable {
     }
 }
 
+/// Passed down to future with poll call.
 pub struct Context<'a> {
     waker: &'a Waker
 }
@@ -91,6 +96,17 @@ impl<'a> Context<'a> {
     }
 }
 
+/// Waker serves as a notification machanism.
+/// As we will see that the complete asynchronous execution world is divided into 3 parts:
+///     a. The async computation code. User provided.
+///     b. The async task/future driver scheduler. It polls the future to drive it to completetion.
+///     c. The IO event loop. It notifies the scheduler(#b) to poll the task/future for which it got readiness event.
+/// 
+/// Tokio for #c uses mio event loop for example. We will be using mio for our example as well. The job of the Waker
+/// is the notification part from event loop to the scheduler.
+/// 
+/// A waker potentially can get created for each and every call to Future::poll. So, a custom implementation of a waker
+/// must be very cheap to create.
 pub struct Waker {
     waker: RawWaker
 }
@@ -135,7 +151,19 @@ impl Drop for Waker {
     }
 }
 
-
+/// AtomicWaker
+/// This is mostly as it is from the futures-task library.
+/// This is a very handly implementation so that a waker can be used from multiple threads.
+/// A very common use case for this is when you want to notifiy the scheduler to proceed with the
+/// task/future from another thread. That means you need a thread safe way to set the waker and call its
+/// wake function in a thread safe manner.
+/// Another immportnt thing relates to the fact that we mentioned above i.e a new waker instance can be 
+/// constructed for each poll, so how do we correctly access the waker from the notifying thread when the waker
+/// which was registered with is going to get replaced by another? AtomicWaker
+/// takes care of that synchronization and making sure that the old waker is not left without calling `wake` on them.
+/// 
+/// We are redoing the implementation here using atomics. Using Mutex would have been a lot easier for our understanding, 
+/// bnut this is a lot more fun.
 pub struct AtomicWaker {
     state: AtomicUsize,
     waker: UnsafeCell<Option<Waker>>,

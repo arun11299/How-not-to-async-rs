@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use std::net::{SocketAddr};
-use mio::net::{TcpListener, TcpStream};
+use std::net::SocketAddr;
+use mio::net::TcpListener;
 use std::pin::Pin;
 use crate::future::{Future, Poll};
 use crate::task::Context;
@@ -47,7 +47,7 @@ impl Future for AcceptFuture {
         let listener = Rc::get_mut(&mut self.listener).unwrap();
         
         match listener.accept() {
-            Ok((stream, addr)) => {
+            Ok((_stream, addr)) => {
                 println!("Accepted socket connection: {}", addr);
                 return Poll::Ready(());
             },
