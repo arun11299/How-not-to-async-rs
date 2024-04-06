@@ -73,6 +73,10 @@ where
 }
 
 fn say_twice(msg: String) -> impl future::Future<Output=()> {
+    // Sadly we cannot call await here since compiler for desugaring requires
+    // that we implement the standard Future trait instead of our own.
+    // I do not know of any other way, but that gives us an opportunity to
+    // write our own state machine!
     let f1 = say(msg.clone());
     let f2 = say(msg.clone());
     SayTwiceFuture::new(f1, f2)
