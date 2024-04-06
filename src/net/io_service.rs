@@ -12,6 +12,13 @@ use crate::task::AtomicWaker;
 use crate::thread_pool::ThreadPool;
 use crate::task::Waker;
 
+/// IoService
+/// I copied the C++ io_service name here.
+/// This clubs together the scheduler and the event loop under a single struct.
+/// Ideally a multithreaded async runtime would create a single thread to run both scheduler
+/// and the event loop. But in this example we are running the event-loop in its own thread. Hence,
+/// a lot of additional synchronization is required.
+/// A more efficient way would be for each thread to have its own scheduler and evet loop running together.
 pub struct IoService {
     // This is going to cause a lot of pain as it is an inefficient way to do this.
     // For the time being, using a Mutex so that we can call Poll::register from different threads.

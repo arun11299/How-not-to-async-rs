@@ -13,3 +13,14 @@ Develop an async runtime like thing in Rust for educational purpose.
 For understanding about these concepts, I highly recommend Jon Gjengset youtube videos:
 - [Future](youtube.com/watch?v=9_3krAQtD2k)
 - [Pinning](youtube.com/watch?v=ThjvMReOXYM)
+
+# How to approach
+The source files have concepts implemented in a self contained manner.
+1. future.rs - To know about Futures and other helper data structures and traits.
+2. task.rs - For understanding RawWakers, Wakers, AtomicWakers and ArcWake.
+3. spawn.rs + thread_pool.rs - Scheduler implementation
+
+This completes basic scheduler. The next part is for understanding how to link a IoSource reactor pattern to drive a future.
+1. net/io_service.rs - Combines an event loop and scheduler together.
+2. net/socket.rs - Example only for accepting a socket connection.
+3. main.rs - Has examples. 
